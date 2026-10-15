@@ -1,0 +1,56 @@
+services:
+  # 1. DATABASE SERVICE
+  db:
+    image: postgres:15-alpine
+    container_name: devops_db
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - db_data:/var/lib/postgresql/data  # VOLUME: Giữ lại dữ liệu khi container bị xóa
+    networks:
+      - devops_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. WEB APP SERVICE
+  web:
+    build: 
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: devops_web
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./web:/app  # BIND MOUNT: Map code trên máy vào container để dev nhanh
+    networks:
+      - devops_network
+    depends_on:
+      db:
+        condition: service_healthy # Bắt buộc chờ DB khởi động xong hoàn toàn mới chạy Web
+
+  # 3. NGINX REVERSE PROXY SERVICE
+  nginx:
+    image: nginx:alpine
+    container_name: devops_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"  # Mapping port ra máy host
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - devops_network
+    depends_on:
+      - web
+
+volumes:
+  db_data: # Khai báo Volume cho Database
+
+networks:
+  devops_network:
+    driver: bridge
+
