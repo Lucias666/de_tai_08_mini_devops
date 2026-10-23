@@ -33,7 +33,7 @@ jobs:
           # Gọi thử vào cổng 80 của Nginx và kiểm tra kết quả trả về
           response=$(curl -s http://localhost:80)
           echo "Phản hồi từ Server: $response"
-          echo "$response" | grep "Connected to PostgreSQL successfully!"
+          echo "$response" | python3 -c 'import sys,json; assert json.load(sys.stdin)["database_status"] == "Connected"'
 
       # 5. Dọn dẹp hệ thống sau khi test xong
       - name: Tear down

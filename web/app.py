@@ -1,44 +1,47 @@
+
 import os
-from flask import Flask, jsonify
+from contextlib import closing
+
 import psycopg2
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 
-@app.route('/')
-def hello():
-    # Lấy thông tin kết nối từ Biến môi trường (Mặc định sẽ dùng các giá trị vế sau nếu không tìm thấy)
-    db_host = os.environ.get('DB_HOST', 'localhost')
-    db_port = os.environ.get('DB_PORT', '5432')
-    db_name = os.environ.get('DB_NAME', 'devops_db')
-    db_user = os.environ.get('DB_USER', 'postgres')
-    db_pass = os.environ.get('DB_PASS', 'postgres')
-    
-    db_status = "Disconnected"
-    error_msg = None
-    
-    # Thử kết nối tới PostgreSQL
-    try:
-        conn = psycopg2.connect(
-            host=db_host,
-            port=db_port,
-            database=db_name,
-            user=db_user,
-            password=db_pass
-        )
-        db_status = "Connected to PostgreSQL successfully!"
-        conn.close()
-    except Exception as e:
-        # Bắt lỗi để sau này dễ Troubleshooting khi giảng viên đánh sập Database
-        error_msg = str(e)
-    
-    # Trả về kết quả dạng JSON
-    return jsonify({
-        "project": "Mini DevOps Environment",
-        "message": "Hello from Flask Web App!",
-        "database_status": db_status,
-        "error": error_msg
-    })
 
-if __name__ == '__main__':
-    # Chạy app ở port 5000, host 0.0.0.0 là bắt buộc để Docker có thể map port ra bên ngoài container
-    app.run(host='0.0.0.0', port=5000)
+@app.get("/")
+def hello():
+    try:
+        with closing(
+            psycopg2.connect(
+                host=os.environ["DB_HOST"],
+                port=int(os.environ.get("DB_PORT", "5432")),
+                dbname=os.environ["DB_NAME"],
+                user=os.environ["DB_USER"],
+                password=os.environ["DB_PASS"],
+                connect_timeout=3,
+            )
+        ) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+
+        return jsonify({
+            "project": "Mini DevOps Environment",
+            "message": "Hello from Flask Web App!",
+            "database_status": "Connected",
+            "error": None,
+        }), 200
+
+    except (psycopg2.Error, KeyError, ValueError):
+        app.logger.exception("Database connection check failed")
+
+        return jsonify({
+            "project": "Mini DevOps Environment",
+            "message": "Database is unavailable",
+            "database_status": "Disconnected",
+            "error": "Database connection failed",
+        }), 503
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
