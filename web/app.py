@@ -27,7 +27,7 @@ def hello():
 
         return jsonify({
             "project": "Mini DevOps Environment",
-            "message": "Hello from Flask Web App!",
+            "message": "CI/CD Demo - Version 2!",
             "database_status": "Connected",
             "error": None,
         }), 200
